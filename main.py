@@ -114,7 +114,7 @@ def call_groq_api(prompt: str, max_tokens: int = 1000, temperature: float = 0.1)
 
 try:
     from sentence_transformers import SentenceTransformer
-    local_model = SentenceTransformer("sentence-transformers/all-MiniLM-L3-v2")
+    local_model = SentenceTransformer("sentence-transformers/all-MiniLM-L2-v2")
     use_local_encoder = True
     logging.info("✅ Loaded local sentence-transformers model.")
 except Exception as e:
