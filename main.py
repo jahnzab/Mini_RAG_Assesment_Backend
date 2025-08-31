@@ -815,7 +815,77 @@ def root():
             "/health"
         ]
     }
-
+@app.get("/health")
+def health_check():
+    """Comprehensive health check endpoint for debugging deployment issues."""
+    try:
+        health_status = {
+            "status": "healthy",
+            "timestamp": time.time(),
+            "environment": {
+                "groq_api_key_configured": bool(GROQ_API_KEY),
+                "pinecone_api_key_configured": bool(PINECONE_API_KEY),
+                "pinecone_environment": PINECONE_ENVIRONMENT
+            },
+            "dependencies": {
+                "sentence_transformers": use_local_encoder,
+                "local_model_loaded": local_model is not None
+            }
+        }
+        
+        # Test Pinecone connection
+        try:
+            indexes = pc.list_indexes()
+            health_status["pinecone"] = {
+                "connected": True,
+                "indexes_count": len(indexes),
+                "indexes": [idx["name"] for idx in indexes]
+            }
+        except Exception as e:
+            health_status["pinecone"] = {
+                "connected": False,
+                "error": str(e)
+            }
+            health_status["status"] = "degraded"
+        
+        # Test GroqAI connection with a simple request
+        try:
+            test_response = call_groq_api("Hello, this is a test.", max_tokens=10, temperature=0.1)
+            health_status["groq"] = {
+                "connected": True,
+                "test_response_length": len(test_response)
+            }
+        except Exception as e:
+            health_status["groq"] = {
+                "connected": False,
+                "error": str(e)
+            }
+            health_status["status"] = "degraded"
+        
+        # Test embeddings
+        try:
+            embeddings = GroqEmbeddings()
+            test_embedding = embeddings.embed_query("test")
+            health_status["embeddings"] = {
+                "working": True,
+                "dimension": len(test_embedding),
+                "using_local_model": use_local_encoder
+            }
+        except Exception as e:
+            health_status["embeddings"] = {
+                "working": False,
+                "error": str(e)
+            }
+            health_status["status"] = "degraded"
+        
+        return health_status
+        
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": time.time()
+        }
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
