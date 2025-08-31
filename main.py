@@ -70,7 +70,7 @@ def call_groq_api(prompt: str, max_tokens: int = 1000, temperature: float = 0.1)
                 "content": prompt
             }
         ],
-        "model": "llama-3.1-70b-versatile",  # Free Groq model
+        "model": "Llama3-8b-8192",  # Free Groq model
         "max_tokens": min(max_tokens, 1000),  # Ensure within limits
         "temperature": temperature,
         "stream": False
@@ -499,7 +499,7 @@ async def upload_pdf(file: UploadFile = File(...), chat_id: str = Form(...)):
             "processing_time": round(processing_time, 2),
             "file_size": len(content),
             "vector_db": "Pinecone Cloud",
-            "llm_model": "GroqAI (llama-3.1-70b-versatile)"
+            "llm_model": "GroqAI (Llama3-8b-8192)"
         }
     except Exception as e:
         logger.error(f"❌ Error uploading PDF: {str(e)}")
@@ -536,7 +536,7 @@ async def upload_text(
             "processing_time": round(processing_time, 2),
             "text_length": len(text),
             "vector_db": "Pinecone Cloud (Namespace)",
-            "llm_model": "GroqAI (llama-3.1-70b-versatile)"
+            "llm_model": "GroqAI (Llama3-8b-8192)"
         }
         
     except Exception as e:
@@ -585,7 +585,7 @@ async def enhanced_chat(chat_id: str = Form(...), message: str = Form(...)):
                 "processing_time": round(time.time() - start_time, 2),
                 "reranked_chunks": 0,
                 "vector_db": "Pinecone Cloud (Namespace)",
-                "llm_model": "GroqAI (llama-3.1-70b-versatile)",
+                "llm_model": "GroqAI (Llama3-8b-8192)",
                 "error": None
             }
         
