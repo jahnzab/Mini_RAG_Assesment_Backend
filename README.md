@@ -11,7 +11,7 @@ A **Retrieval-Augmented Generation (RAG)** system integrating **GroqAI** (Free T
 ## Features
 
 - ✅ PDF & Text Upload
-- ✅ Embeddings using `sentence-transformers` (fallback to hash-based)
+- ✅ Embeddings using Nomic AI text-embedding-v1.5
 - ✅ Pinecone vector database with namespaces per chat
 - ✅ Simple reranking for relevance
 - ✅ Citation-aware answers via GroqAI
@@ -36,6 +36,7 @@ A **Retrieval-Augmented Generation (RAG)** system integrating **GroqAI** (Free T
 GROQ_API_KEY=<Your Groq API Key>
 PINECONE_API_KEY=<Your Pinecone API Key>
 PINECONE_ENVIRONMENT=us-east-1
+NOMIC_API_KEY=<your api key>
 ```
 
 git clone <repository-url>
@@ -102,5 +103,6 @@ GroqAI Free Tier limits context; prompts are truncated automatically.
 If sentence-transformers is unavailable, fallback hash-based embeddings are used.
 
 Pinecone namespaces isolate multiple chats for concurrent storage.
+
 
 
