@@ -96,10 +96,11 @@ Detailed logs for every step (info, warning, error).
 Use /debug_pinecone to inspect indexes, namespaces, and vectors.
 
 Notes
-
+To run Backend use uvicorn main:app --reload or go to directly on deployed link https://mini-rag-assesment-backend.onrender.com
 GroqAI Free Tier limits context; prompts are truncated automatically.
 
 If sentence-transformers is unavailable, fallback hash-based embeddings are used.
 
 Pinecone namespaces isolate multiple chats for concurrent storage.
+
 
