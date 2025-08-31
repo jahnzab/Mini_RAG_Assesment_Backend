@@ -11,7 +11,7 @@ langchain-pinecone
 # Vector database (Cloud - Pinecone)
 pinecone-client
 
-lanhgchain-groq
+langchain-groq
 
 langchain-openai
 # Google AI integration
