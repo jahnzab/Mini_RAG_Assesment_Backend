@@ -460,6 +460,7 @@ def process_text_with_pinecone(text: str, chat_id: str, title: str = "Uploaded T
     
     vector_store.add_documents(chunked_documents)
     logger.info(f"Added {len(chunked_documents)} text chunks to namespace '{sanitized_chat_id}'.")
+# Replace your get_pinecone_retriever function with this fixed version:
 
 def get_pinecone_retriever(chat_id: str):
     """Get Pinecone retriever for chat ID using namespaces."""
@@ -476,27 +477,39 @@ def get_pinecone_retriever(chat_id: str):
         )
 
     shared_index_name = "rag-shared-index" if "rag-shared-index" in index_names else index_names[0]
-
-    embeddings = GroqEmbeddings()  # Now uses Nomic AI embeddings
+    embeddings = GroqEmbeddings()
     index = pc.Index(shared_index_name)
 
     try:
         stats = index.describe_index_stats()
         namespaces = stats.get("namespaces", {})
-
+        
+        logger.info(f"Available namespaces: {list(namespaces.keys())}")
+        logger.info(f"Looking for namespace: '{sanitized_chat_id}'")
+        
+        # Check if the specific namespace exists
+        target_namespace = sanitized_chat_id
         if sanitized_chat_id not in namespaces:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No documents found for chat ID '{chat_id}'. Please upload documents first."
-            )
+            # Check if vectors exist in default namespace (empty string)
+            if "" in namespaces and namespaces[""].vector_count > 0:
+                logger.warning(f"Namespace '{sanitized_chat_id}' not found. Using default namespace with {namespaces[''].vector_count} vectors.")
+                target_namespace = ""  # Use default namespace
+            else:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No documents found for chat ID '{chat_id}'. Available namespaces: {list(namespaces.keys())}"
+                )
+                
     except Exception as e:
         logger.warning(f"Could not check namespace stats: {e}")
+        # Default to the intended namespace
+        target_namespace = sanitized_chat_id
 
     vector_store = PineconeVectorStore(
         index=index,
         embedding=embeddings,
         text_key="text",
-        namespace=sanitized_chat_id
+        namespace=target_namespace
     )
 
     retriever = vector_store.as_retriever(
@@ -507,8 +520,121 @@ def get_pinecone_retriever(chat_id: str):
         }
     )
 
-    logger.info(f"Pinecone retriever initialized for namespace '{sanitized_chat_id}' in index '{shared_index_name}'.")
+    logger.info(f"Using namespace: '{target_namespace}' in index '{shared_index_name}'")
     return retriever
+
+# Also add debugging to your upload function to see where vectors are actually going:
+
+def process_pdf_with_pinecone(content: bytes, chat_id: str):
+    """Enhanced PDF processing with Pinecone cloud vector storage using namespaces."""
+    sanitized_chat_id = sanitize_index_name(chat_id)
+    logger.info(f"Starting PDF processing for chat ID: {sanitized_chat_id}")
+
+    with NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    try:
+        loader = PyPDFLoader(tmp_path)
+        documents = loader.load()
+        logger.info(f"Loaded {len(documents)} pages from PDF.")
+        chunked_documents = enhanced_text_chunking(documents)
+        
+    finally:
+        os.remove(tmp_path)
+
+    if not chunked_documents:
+        logger.warning("No documents found in PDF. Skipping embedding process.")
+        return
+
+    embeddings = GroqEmbeddings()
+    index = get_or_create_pinecone_index("rag-shared-index")
+    
+    # Debug: Check index stats before upload
+    try:
+        before_stats = index.describe_index_stats()
+        logger.info(f"Before upload - Total vectors: {before_stats.total_vector_count}")
+        logger.info(f"Before upload - Namespaces: {list(before_stats.namespaces.keys()) if hasattr(before_stats, 'namespaces') else 'None'}")
+    except Exception as e:
+        logger.warning(f"Could not get before stats: {e}")
+    
+    logger.info(f"Creating vector store with namespace: '{sanitized_chat_id}'")
+    
+    vector_store = PineconeVectorStore(
+        index=index,
+        embedding=embeddings,
+        text_key="text",
+        namespace=sanitized_chat_id  # This should create the named namespace
+    )
+    
+    vector_store.add_documents(chunked_documents)
+    
+    # Debug: Check index stats after upload
+    try:
+        time.sleep(2)  # Wait for consistency
+        after_stats = index.describe_index_stats()
+        logger.info(f"After upload - Total vectors: {after_stats.total_vector_count}")
+        logger.info(f"After upload - Namespaces: {list(after_stats.namespaces.keys()) if hasattr(after_stats, 'namespaces') else 'None'}")
+        
+        # Check specific namespace
+        if hasattr(after_stats, 'namespaces') and sanitized_chat_id in after_stats.namespaces:
+            ns_stats = after_stats.namespaces[sanitized_chat_id]
+            logger.info(f"Namespace '{sanitized_chat_id}' has {ns_stats.vector_count} vectors")
+        else:
+            logger.warning(f"Namespace '{sanitized_chat_id}' not found in stats!")
+            
+    except Exception as e:
+        logger.warning(f"Could not get after stats: {e}")
+    
+    logger.info(f"Completed upload to namespace '{sanitized_chat_id}'.")
+# def get_pinecone_retriever(chat_id: str):
+#     """Get Pinecone retriever for chat ID using namespaces."""
+#     sanitized_chat_id = sanitize_index_name(chat_id)
+#     logger.info(f"Getting Pinecone retriever for chat ID: {sanitized_chat_id}")
+
+#     existing_indexes = pc.list_indexes()
+#     index_names = [idx["name"] for idx in existing_indexes]
+
+#     if not index_names:
+#         raise HTTPException(
+#             status_code=404,
+#             detail="No Pinecone indexes found. Please upload documents first."
+#         )
+
+#     shared_index_name = "rag-shared-index" if "rag-shared-index" in index_names else index_names[0]
+
+#     embeddings = GroqEmbeddings()  # Now uses Nomic AI embeddings
+#     index = pc.Index(shared_index_name)
+
+#     try:
+#         stats = index.describe_index_stats()
+#         namespaces = stats.get("namespaces", {})
+
+#         if sanitized_chat_id not in namespaces:
+#             raise HTTPException(
+#                 status_code=404,
+#                 detail=f"No documents found for chat ID '{chat_id}'. Please upload documents first."
+#             )
+#     except Exception as e:
+#         logger.warning(f"Could not check namespace stats: {e}")
+
+#     vector_store = PineconeVectorStore(
+#         index=index,
+#         embedding=embeddings,
+#         text_key="text",
+#         namespace=sanitized_chat_id
+#     )
+
+#     retriever = vector_store.as_retriever(
+#         search_type="similarity_score_threshold",
+#         search_kwargs={
+#             "k": 8,
+#             "score_threshold": 0.0
+#         }
+#     )
+
+#     logger.info(f"Pinecone retriever initialized for namespace '{sanitized_chat_id}' in index '{shared_index_name}'.")
+#     return retriever
 
 def generate_answer_with_citations(question: str, reranked_docs: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
