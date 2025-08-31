@@ -659,12 +659,10 @@ def get_pinecone_retriever(chat_id: str):
         text_key="text",
         namespace=target_namespace
     )
-      retriever = vector_store.as_retriever(
-            search_type="similarity",
-            search_kwargs={"k": 5}
-    # retriever = vector_store.as_retriever(
-    #     search_type="similarity_score_threshold",
-    #     search_kwargs={"k": 8, "score_threshold": 0.0}  # retrieve all for debugging
+      
+    retriever = vector_store.as_retriever(
+        search_type="similarity",
+        search_kwargs={"k": 5}  # retrieve all for debugging
     )
 
     logger.info(f"✅ Pinecone retriever initialized for namespace '{target_namespace}' in index '{shared_index_name}'")
