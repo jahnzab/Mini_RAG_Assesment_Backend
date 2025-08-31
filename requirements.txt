@@ -48,8 +48,6 @@ pypdf
 # HTTP requests for Grok API
 requests
 
-# Sentence transformers for local embeddings (no API key needed)
-sentence-transformers
 
 # Additional utilities
 numpy
