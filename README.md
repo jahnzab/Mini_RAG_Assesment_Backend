@@ -24,7 +24,7 @@ A **Retrieval-Augmented Generation (RAG)** system integrating **GroqAI** (Free T
 
 ## System Requirements
 
-- Python 3.10+
+- Python 3.10
 - FastAPI
 - Pinecone client
 - LangChain (`langchain`, `langchain_community`, `langchain_pinecone`)
@@ -102,3 +102,4 @@ GroqAI Free Tier limits context; prompts are truncated automatically.
 If sentence-transformers is unavailable, fallback hash-based embeddings are used.
 
 Pinecone namespaces isolate multiple chats for concurrent storage.
+
