@@ -585,7 +585,7 @@ async def enhanced_chat(chat_id: str = Form(...), message: str = Form(...)):
                 "processing_time": round(time.time() - start_time, 2),
                 "reranked_chunks": 0,
                 "vector_db": "Pinecone Cloud (Namespace)",
-                "llm_model": "GroqAI (Llama3-8b-8192)",
+                "llm_model": "GroqAI (llama-3.1-70b-versatile)",
                 "error": None
             }
         
