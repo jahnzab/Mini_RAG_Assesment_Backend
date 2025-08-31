@@ -74,7 +74,7 @@ def call_groq_api(prompt: str, max_tokens: int = 1000, temperature: float = 0.1)
                 "content": prompt
             }
         ],
-        "model": "lama-3.1-8b-instant",  # Better Groq model
+        "model": "llama-3.1-8b-instant",  # Better Groq model
         "max_tokens": min(max_tokens, 1000),
         "temperature": temperature,
         "stream": False
