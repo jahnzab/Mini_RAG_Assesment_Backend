@@ -537,24 +537,174 @@ def process_text_with_pinecone(text: str, chat_id: str, title: str = "Uploaded T
 #     return retriever
 # REPLACE these two functions in your code:
 
+# def process_pdf_with_pinecone(content: bytes, chat_id: str):
+#     """Enhanced PDF processing with Pinecone cloud vector storage using namespaces."""
+#     sanitized_chat_id = sanitize_index_name(chat_id)
+#     logger.info(f"Starting enhanced PDF processing for chat ID: {sanitized_chat_id}")
+
+#     with NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+#         tmp.write(content)
+#         tmp_path = tmp.name
+
+#     logger.info(f"Temporary PDF file created at: {tmp_path}")
+
+#     try:
+#         loader = PyPDFLoader(tmp_path)
+#         documents = loader.load()
+#         logger.info(f"Loaded {len(documents)} pages from PDF.")
+        
+#         chunked_documents = enhanced_text_chunking(documents)
+        
+#     finally:
+#         os.remove(tmp_path)
+#         logger.info(f"Temporary file removed.")
+
+#     if not chunked_documents:
+#         logger.warning("No documents found in PDF. Skipping embedding process.")
+#         return
+
+#     embeddings = GroqEmbeddings()  # Uses Nomic AI embeddings
+#     logger.info("Initialized Nomic AI Embeddings.")
+
+#     index = get_or_create_pinecone_index("rag-shared-index")
+    
+#     # Check stats before upload
+#     try:
+#         before_stats = index.describe_index_stats()
+#         logger.info(f"Before upload - Total vectors: {before_stats.total_vector_count}")
+#     except Exception as e:
+#         logger.warning(f"Could not get before stats: {e}")
+    
+#     logger.info(f"Creating vector store with namespace: '{sanitized_chat_id}'")
+    
+#     vector_store = PineconeVectorStore(
+#         index=index,
+#         embedding=embeddings,
+#         text_key="text",
+#         namespace=sanitized_chat_id
+#     )
+    
+#     vector_store.add_documents(chunked_documents)
+    
+#     # Verify upload with shorter wait
+#     try:
+#         time.sleep(1)  # Shorter wait
+#         after_stats = index.describe_index_stats()
+#         logger.info(f"After upload - Total vectors: {after_stats.total_vector_count}")
+        
+#         if hasattr(after_stats, 'namespaces'):
+#             namespaces = after_stats.namespaces
+#             logger.info(f"Available namespaces: {list(namespaces.keys())}")
+            
+#             if sanitized_chat_id in namespaces:
+#                 logger.info(f"✅ Namespace '{sanitized_chat_id}' created with {namespaces[sanitized_chat_id].vector_count} vectors")
+#             else:
+#                 logger.warning(f"⚠️ Namespace '{sanitized_chat_id}' not found after upload!")
+        
+#     except Exception as e:
+#         logger.warning(f"Could not verify upload: {e}")
+    
+#     logger.info(f"Added {len(chunked_documents)} chunks to namespace '{sanitized_chat_id}'.")
+
+# def get_pinecone_retriever(chat_id: str):
+#     """Get Pinecone retriever for chat ID with smart namespace fallback."""
+#     sanitized_chat_id = sanitize_index_name(chat_id)
+#     logger.info(f"Getting Pinecone retriever for chat ID: {sanitized_chat_id}")
+
+#     existing_indexes = pc.list_indexes()
+#     index_names = [idx["name"] for idx in existing_indexes]
+
+#     if not index_names:
+#         raise HTTPException(
+#             status_code=404,
+#             detail="No Pinecone indexes found. Please upload documents first."
+#         )
+
+#     shared_index_name = "rag-shared-index" if "rag-shared-index" in index_names else index_names[0]
+#     embeddings = GroqEmbeddings()
+#     index = pc.Index(shared_index_name)
+
+#     # Smart namespace detection with fallback
+#     target_namespace = sanitized_chat_id
+    
+#     try:
+#         stats = index.describe_index_stats()
+#         logger.info(f"Total vectors in index: {stats.total_vector_count}")
+        
+#         if hasattr(stats, 'namespaces'):
+#             namespaces = stats.namespaces
+#             logger.info(f"Available namespaces: {list(namespaces.keys())}")
+            
+#             # Check if intended namespace exists
+#             if sanitized_chat_id in namespaces:
+#                 vector_count = namespaces[sanitized_chat_id].vector_count
+#                 logger.info(f"✅ Found namespace '{sanitized_chat_id}' with {vector_count} vectors")
+#                 target_namespace = sanitized_chat_id
+            
+#             # Fallback to default namespace if it has vectors
+#             elif "" in namespaces and namespaces[""].vector_count > 0:
+#                 vector_count = namespaces[""].vector_count
+#                 logger.info(f"⚠️ Namespace '{sanitized_chat_id}' not found. Using default namespace with {vector_count} vectors")
+#                 target_namespace = ""
+            
+#             # No suitable namespace found
+#             else:
+#                 available = [ns for ns in namespaces.keys() if namespaces[ns].vector_count > 0]
+#                 if available:
+#                     target_namespace = available[0]
+#                     logger.info(f"⚠️ Using available namespace: '{target_namespace}'")
+#                 else:
+#                     raise HTTPException(
+#                         status_code=404,
+#                         detail=f"No documents found. Available namespaces: {list(namespaces.keys())}"
+#                     )
+#         else:
+#             # No namespace info available, proceed with intended namespace
+#             logger.warning("No namespace information available from stats")
+            
+#     except Exception as e:
+#         logger.warning(f"Could not check namespace stats: {e}")
+#         # Proceed with intended namespace as fallback
+
+#     logger.info(f"🎯 Using namespace: '{target_namespace}'")
+
+#     vector_store = PineconeVectorStore(
+#         index=index,
+#         embedding=embeddings,
+#         text_key="text",
+#         namespace=target_namespace
+#     )
+
+#     retriever = vector_store.as_retriever(
+#         search_type="similarity_score_threshold",
+#         search_kwargs={
+#             "k": 8,
+#             "score_threshold": 0.0  # Allow all results for debugging
+#         }
+#     )
+
+#     logger.info(f"✅ Pinecone retriever initialized for namespace '{target_namespace}' in index '{shared_index_name}'")
+#     return retriever
+# ------------------- PDF Processing -------------------
+
 def process_pdf_with_pinecone(content: bytes, chat_id: str):
     """Enhanced PDF processing with Pinecone cloud vector storage using namespaces."""
     sanitized_chat_id = sanitize_index_name(chat_id)
-    logger.info(f"Starting enhanced PDF processing for chat ID: {sanitized_chat_id}")
+    logger.info(f"Starting PDF processing for chat ID: {sanitized_chat_id}")
 
+    # Save PDF temporarily
     with NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         tmp.write(content)
         tmp_path = tmp.name
-
     logger.info(f"Temporary PDF file created at: {tmp_path}")
 
     try:
         loader = PyPDFLoader(tmp_path)
         documents = loader.load()
         logger.info(f"Loaded {len(documents)} pages from PDF.")
-        
+
         chunked_documents = enhanced_text_chunking(documents)
-        
+
     finally:
         os.remove(tmp_path)
         logger.info(f"Temporary file removed.")
@@ -563,48 +713,44 @@ def process_pdf_with_pinecone(content: bytes, chat_id: str):
         logger.warning("No documents found in PDF. Skipping embedding process.")
         return
 
-    embeddings = GroqEmbeddings()  # Uses Nomic AI embeddings
+    # Initialize embeddings
+    embeddings = GroqEmbeddings()
     logger.info("Initialized Nomic AI Embeddings.")
 
+    # Get or create Pinecone index
     index = get_or_create_pinecone_index("rag-shared-index")
-    
-    # Check stats before upload
+
+    # Log before upload
     try:
         before_stats = index.describe_index_stats()
         logger.info(f"Before upload - Total vectors: {before_stats.total_vector_count}")
     except Exception as e:
         logger.warning(f"Could not get before stats: {e}")
-    
-    logger.info(f"Creating vector store with namespace: '{sanitized_chat_id}'")
-    
+
+    logger.info(f"Adding {len(chunked_documents)} chunks to namespace '{sanitized_chat_id}'")
     vector_store = PineconeVectorStore(
         index=index,
         embedding=embeddings,
         text_key="text",
         namespace=sanitized_chat_id
     )
-    
     vector_store.add_documents(chunked_documents)
-    
-    # Verify upload with shorter wait
-    try:
-        time.sleep(1)  # Shorter wait
-        after_stats = index.describe_index_stats()
-        logger.info(f"After upload - Total vectors: {after_stats.total_vector_count}")
-        
-        if hasattr(after_stats, 'namespaces'):
-            namespaces = after_stats.namespaces
-            logger.info(f"Available namespaces: {list(namespaces.keys())}")
-            
-            if sanitized_chat_id in namespaces:
-                logger.info(f"✅ Namespace '{sanitized_chat_id}' created with {namespaces[sanitized_chat_id].vector_count} vectors")
-            else:
-                logger.warning(f"⚠️ Namespace '{sanitized_chat_id}' not found after upload!")
-        
-    except Exception as e:
-        logger.warning(f"Could not verify upload: {e}")
-    
-    logger.info(f"Added {len(chunked_documents)} chunks to namespace '{sanitized_chat_id}'.")
+
+    # ✅ Wait until namespace has all vectors
+    max_wait = 5  # seconds
+    waited = 0
+    while waited < max_wait:
+        stats = index.describe_index_stats()
+        ns_info = stats.namespaces.get(sanitized_chat_id)
+        if ns_info and ns_info.vector_count >= len(chunked_documents):
+            logger.info(f"✅ Namespace '{sanitized_chat_id}' has {ns_info.vector_count} vectors")
+            break
+        time.sleep(0.5)
+        waited += 0.5
+    else:
+        logger.warning(f"⚠️ Namespace '{sanitized_chat_id}' may not be fully updated yet!")
+
+# ------------------- Pinecone Retriever -------------------
 
 def get_pinecone_retriever(chat_id: str):
     """Get Pinecone retriever for chat ID with smart namespace fallback."""
@@ -612,61 +758,37 @@ def get_pinecone_retriever(chat_id: str):
     logger.info(f"Getting Pinecone retriever for chat ID: {sanitized_chat_id}")
 
     existing_indexes = pc.list_indexes()
-    index_names = [idx["name"] for idx in existing_indexes]
+    if not existing_indexes:
+        raise HTTPException(status_code=404, detail="No Pinecone indexes found. Please upload documents first.")
 
-    if not index_names:
-        raise HTTPException(
-            status_code=404,
-            detail="No Pinecone indexes found. Please upload documents first."
-        )
-
-    shared_index_name = "rag-shared-index" if "rag-shared-index" in index_names else index_names[0]
+    shared_index_name = "rag-shared-index" if "rag-shared-index" in existing_indexes else existing_indexes[0]
     embeddings = GroqEmbeddings()
     index = pc.Index(shared_index_name)
 
-    # Smart namespace detection with fallback
-    target_namespace = sanitized_chat_id
-    
+    # Confirm namespace exists
     try:
         stats = index.describe_index_stats()
-        logger.info(f"Total vectors in index: {stats.total_vector_count}")
-        
-        if hasattr(stats, 'namespaces'):
-            namespaces = stats.namespaces
-            logger.info(f"Available namespaces: {list(namespaces.keys())}")
-            
-            # Check if intended namespace exists
-            if sanitized_chat_id in namespaces:
-                vector_count = namespaces[sanitized_chat_id].vector_count
-                logger.info(f"✅ Found namespace '{sanitized_chat_id}' with {vector_count} vectors")
-                target_namespace = sanitized_chat_id
-            
-            # Fallback to default namespace if it has vectors
-            elif "" in namespaces and namespaces[""].vector_count > 0:
-                vector_count = namespaces[""].vector_count
-                logger.info(f"⚠️ Namespace '{sanitized_chat_id}' not found. Using default namespace with {vector_count} vectors")
-                target_namespace = ""
-            
-            # No suitable namespace found
-            else:
-                available = [ns for ns in namespaces.keys() if namespaces[ns].vector_count > 0]
-                if available:
-                    target_namespace = available[0]
-                    logger.info(f"⚠️ Using available namespace: '{target_namespace}'")
-                else:
-                    raise HTTPException(
-                        status_code=404,
-                        detail=f"No documents found. Available namespaces: {list(namespaces.keys())}"
-                    )
-        else:
-            # No namespace info available, proceed with intended namespace
-            logger.warning("No namespace information available from stats")
-            
-    except Exception as e:
-        logger.warning(f"Could not check namespace stats: {e}")
-        # Proceed with intended namespace as fallback
+        namespaces = stats.namespaces or {}
+        logger.info(f"Available namespaces: {list(namespaces.keys())}")
 
-    logger.info(f"🎯 Using namespace: '{target_namespace}'")
+        if sanitized_chat_id not in namespaces or namespaces[sanitized_chat_id].vector_count == 0:
+            # Fallback to any available namespace
+            available = [ns for ns, info in namespaces.items() if info.vector_count > 0]
+            if available:
+                target_namespace = available[0]
+                logger.warning(f"Namespace '{sanitized_chat_id}' empty. Using '{target_namespace}' instead.")
+            else:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No vectors found. Available namespaces: {list(namespaces.keys())}"
+                )
+        else:
+            target_namespace = sanitized_chat_id
+            logger.info(f"✅ Using namespace '{target_namespace}' with {namespaces[target_namespace].vector_count} vectors")
+
+    except Exception as e:
+        logger.warning(f"Could not verify namespace stats: {e}")
+        target_namespace = sanitized_chat_id  # fallback
 
     vector_store = PineconeVectorStore(
         index=index,
@@ -677,14 +799,11 @@ def get_pinecone_retriever(chat_id: str):
 
     retriever = vector_store.as_retriever(
         search_type="similarity_score_threshold",
-        search_kwargs={
-            "k": 8,
-            "score_threshold": 0.0  # Allow all results for debugging
-        }
+        search_kwargs={"k": 8, "score_threshold": 0.0}
     )
-
-    logger.info(f"✅ Pinecone retriever initialized for namespace '{target_namespace}' in index '{shared_index_name}'")
+    logger.info(f"✅ Pinecone retriever initialized for namespace '{target_namespace}'")
     return retriever
+
 def generate_answer_with_citations(question: str, reranked_docs: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Generate answer with inline citations using GroqAI.
@@ -753,25 +872,170 @@ Answer:"""
 
 # --------------------- API Routes --------------------------
 
+# @app.post("/upload_pdf/")
+# async def upload_pdf(file: UploadFile = File(...), chat_id: str = Form(...)):
+#     """Upload PDF and process it into Pinecone cloud vector database."""
+#     start_time = time.time()
+    
+#     try:
+#         if not file.filename.lower().endswith('.pdf'):
+#             raise HTTPException(status_code=400, detail="Only PDF files are supported")
+        
+#         content = await file.read()
+#         if len(content) == 0:
+#             raise HTTPException(status_code=400, detail="Empty file uploaded")
+            
+#         process_pdf_with_pinecone(content, chat_id)
+        
+#         processing_time = time.time() - start_time
+        
+#         return {
+#             "message": f"✅ PDF processed successfully and stored in Pinecone cloud",
+#             "chat_id": sanitize_index_name(chat_id),
+#             "filename": file.filename,
+#             "processing_time": round(processing_time, 2),
+#             "file_size": len(content),
+#             "vector_db": "Pinecone Cloud",
+#             "embedding_model": "Nomic AI text-embedding-v1.5 (384d)",
+#             "llm_model": "GroqAI (Llama3-8b-8192)"
+#         }
+#     except Exception as e:
+#         logger.error(f"❌ Error uploading PDF: {str(e)}")
+#         traceback.print_exc()
+#         return JSONResponse(
+#             content={
+#                 "error": f"Failed to process PDF: {str(e)}",
+#                 "processing_time": round(time.time() - start_time, 2)
+#             }, 
+#             status_code=500
+#         )
+
+# @app.post("/upload_text/")
+# async def upload_text(
+#     text: str = Form(...), 
+#     chat_id: str = Form(...), 
+#     title: str = Form("Uploaded Text")
+# ):
+#     """Upload text content and store it in Pinecone under a namespace."""
+#     start_time = time.time()
+    
+#     try:
+#         if not text.strip():
+#             raise HTTPException(status_code=400, detail="Empty text provided")
+        
+#         process_text_with_pinecone(text, chat_id, title)
+        
+#         processing_time = time.time() - start_time
+        
+#         return {
+#             "message": "✅ Text processed successfully and stored in Pinecone cloud",
+#             "chat_id": sanitize_index_name(chat_id),
+#             "title": title,
+#             "processing_time": round(processing_time, 2),
+#             "text_length": len(text),
+#             "vector_db": "Pinecone Cloud (Namespace)",
+#             "embedding_model": "Nomic AI text-embedding-v1.5 (384d)",
+#             "llm_model": "GroqAI (Llama3-8b-8192)"
+#         }
+        
+#     except Exception as e:
+#         logger.error(f"❌ Error uploading text: {str(e)}")
+#         traceback.print_exc()
+#         return JSONResponse(
+#             content={
+#                 "error": f"Failed to process text: {str(e)}",
+#                 "processing_time": round(time.time() - start_time, 2)
+#             }, 
+#             status_code=500
+#         )
+
+# @app.post("/chat/")
+# async def enhanced_chat(chat_id: str = Form(...), message: str = Form(...)):
+#     """
+#     Enhanced chat with GroqAI + Pinecone retriever + reranker pipeline and citations.
+#     """
+#     start_time = time.time()
+    
+#     try:
+#         if not message.strip():
+#             raise HTTPException(status_code=400, detail="Empty message provided")
+        
+#         existing_indexes = pc.list_indexes()
+#         if not existing_indexes:
+#             return JSONResponse(
+#                 content={
+#                     "error": f"No indexes found. Please upload documents first.",
+#                     "suggestions": "Upload a PDF or text document before starting the chat."
+#                 },
+#                 status_code=404
+#             )
+        
+#         # Step 1: Retrieve from Pinecone
+#         retriever = get_pinecone_retriever(chat_id)
+#         retrieved_docs = retriever.invoke(message)
+#         logger.info(f"Retrieved {len(retrieved_docs)} documents")
+        
+#         if not retrieved_docs:
+#             return {
+#                 "response": "I couldn't find relevant information in the uploaded documents to answer your question.",
+#                 "answer": "I couldn't find relevant information in the uploaded documents to answer your question.",
+#                 "sources": [],
+#                 "retrieved_chunks": 0,
+#                 "processing_time": round(time.time() - start_time, 2),
+#                 "reranked_chunks": 0,
+#                 "vector_db": "Pinecone Cloud (Namespace)",
+#                 "embedding_model": "Nomic AI text-embedding-v1.5 (384d)",
+#                 "llm_model": "GroqAI (Llama3-8b-8192)",
+#                 "error": None
+#             }
+        
+#         # Step 2: Apply reranker
+#         reranked_docs = simple_reranker(retrieved_docs, message, top_k=5)
+#         logger.info(f"Reranked to top {len(reranked_docs)} most relevant chunks")
+        
+#         # Step 3: Generate answer with citations using GroqAI
+#         result = generate_answer_with_citations(message, reranked_docs)
+        
+#         result.update({
+#             "response": result["answer"],
+#             "retrieved_chunks": len(retrieved_docs),
+#             "reranked_chunks": len(reranked_docs),
+#             "total_processing_time": round(time.time() - start_time, 2),
+#             "vector_db": "Pinecone Cloud (Namespace)",
+#             "embedding_model": "Nomic AI text-embedding-v1.5 (384d)",
+#             "llm_model": "GroqAI (llama-3.1-70b-versatile)",
+#             "namespace": sanitize_index_name(chat_id)
+#         })
+        
+#         return result
+        
+#     except Exception as e:
+#         logger.error(f"Error in enhanced chat: {str(e)}")
+#         return JSONResponse(
+#             content={
+#                 "error": f"Chat processing failed: {str(e)}",
+#                 "processing_time": round(time.time() - start_time, 2)
+#             }, 
+#             status_code=500
+#         )
 @app.post("/upload_pdf/")
 async def upload_pdf(file: UploadFile = File(...), chat_id: str = Form(...)):
     """Upload PDF and process it into Pinecone cloud vector database."""
     start_time = time.time()
-    
     try:
-        if not file.filename.lower().endswith('.pdf'):
+        if not file.filename.lower().endswith(".pdf"):
             raise HTTPException(status_code=400, detail="Only PDF files are supported")
-        
+
         content = await file.read()
         if len(content) == 0:
             raise HTTPException(status_code=400, detail="Empty file uploaded")
-            
+
+        # Use robust function
         process_pdf_with_pinecone(content, chat_id)
-        
+
         processing_time = time.time() - start_time
-        
         return {
-            "message": f"✅ PDF processed successfully and stored in Pinecone cloud",
+            "message": "✅ PDF processed successfully and stored in Pinecone cloud",
             "chat_id": sanitize_index_name(chat_id),
             "filename": file.filename,
             "processing_time": round(processing_time, 2),
@@ -780,34 +1044,28 @@ async def upload_pdf(file: UploadFile = File(...), chat_id: str = Form(...)):
             "embedding_model": "Nomic AI text-embedding-v1.5 (384d)",
             "llm_model": "GroqAI (Llama3-8b-8192)"
         }
+
     except Exception as e:
         logger.error(f"❌ Error uploading PDF: {str(e)}")
         traceback.print_exc()
         return JSONResponse(
-            content={
-                "error": f"Failed to process PDF: {str(e)}",
-                "processing_time": round(time.time() - start_time, 2)
-            }, 
+            content={"error": f"Failed to process PDF: {str(e)}",
+                     "processing_time": round(time.time() - start_time, 2)},
             status_code=500
         )
 
+
 @app.post("/upload_text/")
-async def upload_text(
-    text: str = Form(...), 
-    chat_id: str = Form(...), 
-    title: str = Form("Uploaded Text")
-):
+async def upload_text(text: str = Form(...), chat_id: str = Form(...), title: str = Form("Uploaded Text")):
     """Upload text content and store it in Pinecone under a namespace."""
     start_time = time.time()
-    
     try:
         if not text.strip():
             raise HTTPException(status_code=400, detail="Empty text provided")
-        
+
         process_text_with_pinecone(text, chat_id, title)
-        
+
         processing_time = time.time() - start_time
-        
         return {
             "message": "✅ Text processed successfully and stored in Pinecone cloud",
             "chat_id": sanitize_index_name(chat_id),
@@ -818,65 +1076,52 @@ async def upload_text(
             "embedding_model": "Nomic AI text-embedding-v1.5 (384d)",
             "llm_model": "GroqAI (Llama3-8b-8192)"
         }
-        
+
     except Exception as e:
         logger.error(f"❌ Error uploading text: {str(e)}")
         traceback.print_exc()
         return JSONResponse(
-            content={
-                "error": f"Failed to process text: {str(e)}",
-                "processing_time": round(time.time() - start_time, 2)
-            }, 
+            content={"error": f"Failed to process text: {str(e)}",
+                     "processing_time": round(time.time() - start_time, 2)},
             status_code=500
         )
 
+
 @app.post("/chat/")
 async def enhanced_chat(chat_id: str = Form(...), message: str = Form(...)):
-    """
-    Enhanced chat with GroqAI + Pinecone retriever + reranker pipeline and citations.
-    """
+    """Enhanced chat with GroqAI + Pinecone retriever + reranker + citations."""
     start_time = time.time()
-    
     try:
         if not message.strip():
             raise HTTPException(status_code=400, detail="Empty message provided")
-        
-        existing_indexes = pc.list_indexes()
-        if not existing_indexes:
-            return JSONResponse(
-                content={
-                    "error": f"No indexes found. Please upload documents first.",
-                    "suggestions": "Upload a PDF or text document before starting the chat."
-                },
-                status_code=404
-            )
-        
-        # Step 1: Retrieve from Pinecone
+
+        # Step 1: Get retriever
         retriever = get_pinecone_retriever(chat_id)
         retrieved_docs = retriever.invoke(message)
         logger.info(f"Retrieved {len(retrieved_docs)} documents")
-        
+
         if not retrieved_docs:
             return {
-                "response": "I couldn't find relevant information in the uploaded documents to answer your question.",
-                "answer": "I couldn't find relevant information in the uploaded documents to answer your question.",
+                "response": "No relevant information found in uploaded documents.",
+                "answer": "No relevant information found in uploaded documents.",
                 "sources": [],
                 "retrieved_chunks": 0,
-                "processing_time": round(time.time() - start_time, 2),
                 "reranked_chunks": 0,
+                "processing_time": round(time.time() - start_time, 2),
                 "vector_db": "Pinecone Cloud (Namespace)",
                 "embedding_model": "Nomic AI text-embedding-v1.5 (384d)",
                 "llm_model": "GroqAI (Llama3-8b-8192)",
+                "namespace": sanitize_index_name(chat_id),
                 "error": None
             }
-        
-        # Step 2: Apply reranker
+
+        # Step 2: Rerank top-k chunks
         reranked_docs = simple_reranker(retrieved_docs, message, top_k=5)
         logger.info(f"Reranked to top {len(reranked_docs)} most relevant chunks")
-        
-        # Step 3: Generate answer with citations using GroqAI
+
+        # Step 3: Generate answer with citations
         result = generate_answer_with_citations(message, reranked_docs)
-        
+
         result.update({
             "response": result["answer"],
             "retrieved_chunks": len(retrieved_docs),
@@ -884,19 +1129,18 @@ async def enhanced_chat(chat_id: str = Form(...), message: str = Form(...)):
             "total_processing_time": round(time.time() - start_time, 2),
             "vector_db": "Pinecone Cloud (Namespace)",
             "embedding_model": "Nomic AI text-embedding-v1.5 (384d)",
-            "llm_model": "GroqAI (llama-3.1-70b-versatile)",
+            "llm_model": "GroqAI (Llama3-8b-8192)",
             "namespace": sanitize_index_name(chat_id)
         })
-        
+
         return result
-        
+
     except Exception as e:
-        logger.error(f"Error in enhanced chat: {str(e)}")
+        logger.error(f"❌ Error in enhanced chat: {str(e)}")
+        traceback.print_exc()
         return JSONResponse(
-            content={
-                "error": f"Chat processing failed: {str(e)}",
-                "processing_time": round(time.time() - start_time, 2)
-            }, 
+            content={"error": f"Chat processing failed: {str(e)}",
+                     "processing_time": round(time.time() - start_time, 2)},
             status_code=500
         )
 
