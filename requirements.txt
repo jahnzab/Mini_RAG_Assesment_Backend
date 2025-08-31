@@ -1,24 +1,24 @@
 # Core FastAPI and web framework
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
+fastapi
+uvicorn[standard]
 
 # LangChain ecosystem
-langchain==0.1.0
-langchain-community==0.0.10
-langchain-google-genai==0.0.5
-langchain-pinecone==0.0.3
+langchain
+langchain-community
+langchain-google-genai
+langchain-pinecone
 
 # Vector database (Cloud - Pinecone)
-pinecone-client==3.0.0
+pinecone-client
 
 lanhgchain-groq
 
 langchain-openai
 # Google AI integration
-google-generativeai==0.3.2
+google-generativeai
 
 # PDF processing
-pypdf==3.17.4
+pypdf
 
 # Text processing and utilities
 python-multipart
@@ -27,38 +27,34 @@ python-dotenv
 
 
 # Logging and monitoring (optional but recommended)
-structlog==23.2.0
+structlog
 
 # Additional utilities
-typing-extensions==4.8.0
-pydantic==2.5.0
+typing-extensions
+pydantic
 # Core FastAPI and server dependencies
-fastapi==0.104.1
-uvicorn==0.24.0
-python-multipart==0.0.6
-python-dotenv==1.0.0
+fastapi
+uvicorn
+
 
 # LangChain core and integrations
-langchain==0.0.348
-langchain-community==0.0.2
-langchain-pinecone==0.0.3
 
-# Vector database
-pinecone-client==2.2.4
+
+
 
 # Document processing
-pypdf==3.17.1
+pypdf
 
 # HTTP requests for Grok API
-requests==2.31.0
+requests
 
 # Sentence transformers for local embeddings (no API key needed)
-sentence-transformers==2.2.2
+sentence-transformers
 
 # Additional utilities
-numpy==1.24.3
-typing-extensions==4.8.0
+numpy
+typing-extensions
 
 # Optional: For better performance
-torch==2.0.1
-sentence-transformers
+torch
+
